@@ -14,7 +14,13 @@ function isMasterRow(row) {
   return joined.includes('MASTER ROW') || joined.includes('DO NOT DELETE')
 }
 
-export async function parseTrialWorkbook(file) {
+// -----------------------------------------------------------------------------
+// Step 1 — Heavy XLSX parsing
+// Reads bytes, returns the rows array and metadata. This is the expensive
+// step (~1-3 sec for 50k rows). Output is JSON-serializable and IndexedDB-
+// safe so we can cache it directly.
+// -----------------------------------------------------------------------------
+export async function parseRawWorkbook(file) {
   const buf = await file.arrayBuffer()
   const wb = XLSX.read(buf, { type: 'array' })
   const wsName = wb.SheetNames[0]
@@ -36,6 +42,26 @@ export async function parseTrialWorkbook(file) {
   })
   rows.forEach((r, i) => (r.__idx = i))
 
+  const linkIdx = headers.indexOf('NCT Trial Link')
+  const clinicHeaders = []
+  if (linkIdx >= 0) {
+    for (let i = linkIdx + 1; i < headers.length; i++) {
+      const h = headers[i]
+      if (h && !REGION_HEADERS.has(h)) clinicHeaders.push(h)
+    }
+  }
+
+  return { headers, rows, clinicHeaders }
+}
+
+// -----------------------------------------------------------------------------
+// Step 2 — Cheap index building
+// Takes the raw rows (from parseRawWorkbook OR from IndexedDB cache) and
+// builds the Map/Set indexes the pages query against. Runs in ~50–100ms.
+// Maps/Sets aren't cached (not trivially structuredClone-able from old DBs),
+// so we always rebuild them on app start.
+// -----------------------------------------------------------------------------
+export function buildIndexes({ headers, rows, clinicHeaders }) {
   const diseasesSet = new Set()
   const linesByDisease = new Map()
   const trialsByDiseaseLot = new Map()
@@ -60,15 +86,6 @@ export async function parseTrialWorkbook(file) {
     linesByDiseaseArr.set(d, [...set].sort(lineOfTherapyOrder))
   }
 
-  const linkIdx = headers.indexOf('NCT Trial Link')
-  const clinicHeaders = []
-  if (linkIdx >= 0) {
-    for (let i = linkIdx + 1; i < headers.length; i++) {
-      const h = headers[i]
-      if (h && !REGION_HEADERS.has(h)) clinicHeaders.push(h)
-    }
-  }
-
   return {
     headers,
     rows,
@@ -78,6 +95,12 @@ export async function parseTrialWorkbook(file) {
     regionsByRow,
     clinicHeaders,
   }
+}
+
+// Convenience wrapper for the original API: parse + build in one step.
+export async function parseTrialWorkbook(file) {
+  const raw = await parseRawWorkbook(file)
+  return buildIndexes(raw)
 }
 
 const LOT_ORDER = [
