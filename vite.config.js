@@ -13,7 +13,7 @@ const SHARE_URL =
 // `npm run dev` working without re-downloading the file on every refresh.
 //
 // In production this plugin doesn't run — the file is bundled at build time
-// by scripts/fetch-data.mjs and served as /data.xlsx instead.
+// by scripts/fetch-data.mjs, pre-parsed to JSON, and served as /data.json instead.
 // ---------------------------------------------------------------------------
 function sharepointDataPlugin() {
   return {

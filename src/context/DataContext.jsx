@@ -61,6 +61,11 @@ export function DataProvider({ children }) {
 
   // Network fetch path (default on app start, or "Retry" button). Caches
   // afterwards.
+  //
+  // In production the URL points to /data.json — pre-parsed by the build
+  // script, so we skip XLSX parsing entirely and just call buildIndexes().
+  // In dev the URL points to /sharepoint-data which returns the raw .xlsx,
+  // so we fall through to parseRawWorkbook as before.
   const loadFromUrl = useCallback(
     async (url) => {
       setLoading(true)
@@ -85,6 +90,20 @@ export function DataProvider({ children }) {
           )
         }
 
+        // Pre-parsed JSON path (production): no XLSX work in the browser.
+        if (url.endsWith('.json') || ct.includes('application/json')) {
+          const raw = await res.json()
+          if (!Array.isArray(raw.rows) || !raw.rows.length) {
+            throw new Error('data.json appears empty or malformed.')
+          }
+          const indexed = buildIndexes(raw)
+          setData(indexed)
+          await writeCache(raw)
+          console.log(`[trial-tracker] loaded pre-parsed JSON (${raw.rows.length} rows)`)
+          return
+        }
+
+        // Raw xlsx path (dev middleware).
         const blob = await res.blob()
         if (blob.size < 1024) {
           throw new Error(`Downloaded file is only ${blob.size} bytes — likely an error page.`)

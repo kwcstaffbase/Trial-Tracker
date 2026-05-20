@@ -11,4 +11,8 @@
 //  .github/workflows/refresh-data.yml triggers a redeploy hourly.
 // =============================================================================
 
-export const DATA_SOURCE_URL = import.meta.env.DEV ? '/sharepoint-data' : '/data.xlsx'
+// Dev: Vite middleware proxies SharePoint and returns the raw .xlsx.
+// Prod: build-time script (scripts/fetch-data.mjs) pre-parses the workbook
+//       and writes public/data.json, so the browser gets ready-to-use JSON
+//       with no client-side XLSX parsing required.
+export const DATA_SOURCE_URL = import.meta.env.DEV ? '/sharepoint-data' : '/data.json'
