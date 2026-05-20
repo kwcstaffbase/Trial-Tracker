@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "fetch-data": "node scripts/fetch-data.mjs",
-    "prebuild": "node scripts/fetch-data.mjs",
+    "prebuild": "node scripts/fetch-data.mjs --skip-if-exists",
     "build": "vite build",
     "preview": "vite preview"
   },

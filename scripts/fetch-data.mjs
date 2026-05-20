@@ -111,6 +111,24 @@ function parseWorkbookToJson(buf) {
 }
 
 async function main() {
+  const skipIfExists = process.argv.includes('--skip-if-exists')
+
+  // If the file is already present (e.g. committed to the repo) and the caller
+  // asked us to skip, just use it. This lets Vercel builds succeed without
+  // needing to reach SharePoint — generate the file locally and commit it,
+  // then Vercel just ships what's already there.
+  if (skipIfExists) {
+    try {
+      const stat = await fs.stat(OUTPUT_PATH)
+      if (stat.isFile()) {
+        console.log(`[fetch-data] ${OUTPUT_PATH} already exists — skipping fetch (--skip-if-exists)`)
+        return
+      }
+    } catch {
+      // file doesn't exist — fall through to fetch
+    }
+  }
+
   console.log(`[fetch-data] Source URL: ${SHARE_URL}`)
   console.log(`[fetch-data] Output:     ${OUTPUT_PATH}`)
 
